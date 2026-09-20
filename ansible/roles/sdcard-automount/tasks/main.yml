@@ -1,0 +1,35 @@
+---
+- name: Create mount point
+  ansible.builtin.file:
+    path: "{{ sdcard_mount_point }}"
+    state: directory
+    mode: "0755"
+  tags: [sdcard]
+
+- name: Add fstab entry for SD card automount
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "LABEL={{ sdcard_label }} {{ sdcard_mount_point }} {{ sdcard_fstype }} noauto,x-systemd.automount,x-systemd.idle-timeout=300,users,nofail 0 2"
+    state: present
+    create: true
+    mode: "0644"
+  register: sdcard_fstab
+  tags: [sdcard]
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: sdcard_fstab.changed
+  tags: [sdcard]
+
+- name: Verify SD card fstab entry
+  ansible.builtin.command: grep "{{ sdcard_mount_point }}" /etc/fstab
+  register: fstab_check
+  changed_when: false
+  check_mode: false
+  tags: [sdcard]
+
+- name: Display fstab entry
+  ansible.builtin.debug:
+    var: fstab_check.stdout
+  tags: [sdcard]

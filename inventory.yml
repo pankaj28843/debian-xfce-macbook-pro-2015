@@ -1,0 +1,152 @@
+all:
+  vars:
+    ansible_user: "{{ lookup('env', 'ANSIBLE_USER') | default('root', true) }}"
+    ansible_python_interpreter: /usr/bin/python3
+  children:
+    macbook:
+      hosts:
+        macbook-pro-2015:
+          ansible_host: "{{ target_host | default(lookup('env', 'TARGET_HOST'), true) }}"
+          ansible_port: 22
+      vars:
+        # Hardware profile
+        hardware_model: "MacBookPro12,1"
+        hardware_cpu: "i5-5257U"
+        hardware_ram_gb: 8
+        hardware_ssd_gb: 128
+        hardware_gpu: "Iris 6100"
+        hardware_wifi_internal: "BCM43602 (non-functional)"
+        hardware_bt_internal: "BCM20703A1 (non-functional)"
+        hardware_wifi_external: "RTL8822BU (rtw_8822bu)"
+        hardware_display: "2560x1600 Retina @ 227 PPI"
+        hardware_hdmi_max: "3840x2160@30Hz"
+        
+        # User config
+        primary_user: "{{ lookup('env', 'PRIMARY_USER') }}"
+        primary_user_uid: 1000
+        primary_user_groups: "cdrom,floppy,audio,dip,video,plugdev,users,netdev,scanner,bluetooth,lpadmin,sudo"
+        primary_user_sudo_nopasswd: true
+        
+        # Display config
+        retina_dpi: 144
+        hdmi_output: "HDMI-1"
+        hdmi_mode: "3840x2160"
+        hdmi_rate: "30"
+        internal_display: "eDP-1"
+        clamshell_mode: true
+        
+        # Power management
+        idle_suspend_minutes: 15
+        lock_screen_on_suspend: false
+        lid_switch_docked: "ignore"
+        lid_switch_battery: "suspend"
+        lid_switch_ac: "suspend"
+        
+        # SSH config
+        ssh_permit_root_login: "prohibit-password"
+        ssh_password_auth: false
+        ssh_pubkey_auth: true
+        ssh_kbd_interactive: false
+        ssh_allow_users: "root {{ primary_user }}"
+        ssh_x11_forwarding: true
+        ssh_port: 22
+        
+        # UFW config
+        ufw_default_incoming: "deny"
+        ufw_default_outgoing: "allow"
+        ufw_allow_ports:
+          - { port: "22", proto: "tcp", comment: "SSH (LAN + Tailscale)" }
+          - { port: "80", proto: "tcp", comment: "HTTP" }
+          - { port: "443", proto: "tcp", comment: "HTTPS" }
+          - { port: "5900", proto: "tcp", comment: "VNC (LAN + Tailscale)" }
+        
+        # Auto updates
+        unattended_upgrades_origins:
+          - "origin=Debian,codename=trixie-security,label=Debian-Security"
+        unattended_upgrades_auto_fix: true
+        unattended_upgrades_minimal_steps: true
+        unattended_upgrades_mail: "root"
+        unattended_upgrades_mail_report: "on-change"
+        
+        # Fan control (mbpfan)
+        mbpfan_min_speed: 1299
+        mbpfan_max_speed: 6199
+        mbpfan_low_temp: 50
+        mbpfan_high_temp: 70
+        mbpfan_max_temp: 85
+        mbpfan_polling_interval: 3
+        
+        # TLP power management
+        tlp_cpu_governor_ac: "powersave"
+        tlp_cpu_governor_bat: "powersave"
+        tlp_pcie_aspm_bat: "powersupersave"
+        tlp_usb_autosuspend: 1
+        
+        # Keyboard
+        hid_apple_fnmode: 2
+        hid_apple_swap_opt_cmd: 0
+
+        # xbacklight package name (acpilight not in Debian 13)
+        xbacklight_package: "xbacklight"
+        
+        # VNC
+        vnc_port: 5900
+        vnc_display: ":0"
+        
+        # SD card
+        sdcard_label: "sdcard"
+        sdcard_mount_point: "/media/{{ primary_user }}/sdcard"
+        sdcard_fstype: "ext4"
+        
+        # Package management
+        essential_packages:
+          - lightdm
+          - lightdm-gtk-greeter
+          - xfce4
+          - xfce4-terminal
+          - xfce4-power-manager
+          - xfce4-pulseaudio-plugin
+          - xfce4-whiskermenu-plugin
+          - network-manager
+          - network-manager-applet
+          - openssh-server
+          - ufw
+          - unattended-upgrades
+          - mbpfan
+          - tlp
+          - xbacklight
+          - x11vnc
+          - firmware-linux
+          - intel-microcode
+          - pipewire
+          - pipewire-pulse
+          - wireplumber
+          - libspa-0.2-bluetooth
+          - blueman
+          - pavucontrol
+          - fonts-noto
+          - fonts-noto-color-emoji
+          - fonts-indic
+          - fonts-lohit-deva
+          - fonts-lohit-gujr
+          - fonts-lohit-guru
+          - fonts-lohit-mlym
+          - fonts-lohit-orya
+          - fonts-lohit-taml
+          - fonts-lohit-telu
+          - fonts-lohit-knda
+          - fonts-samyak-deva
+          - fonts-samyak-gujr
+          - fonts-samyak-mlym
+          - fonts-samyak-taml
+          - imagemagick
+        optional_packages:
+          - pommed
+          - htop
+          - vim
+          - git
+          - curl
+          - wget
+          - rsync
+          - btop
+          - ncdu

@@ -1,0 +1,34 @@
+---
+- name: Install mbpfan
+  ansible.builtin.apt:
+    name: mbpfan
+    state: present
+    install_recommends: false
+  tags: [mbpfan]
+
+- name: Configure mbpfan
+  ansible.builtin.template:
+    src: mbpfan.conf.j2
+    dest: /etc/mbpfan.conf
+    mode: "0644"
+  notify: restart mbpfan
+  tags: [mbpfan]
+
+- name: Enable and start mbpfan service
+  ansible.builtin.systemd:
+    name: mbpfan
+    enabled: true
+    state: started
+  tags: [mbpfan]
+
+- name: Verify existing mbpfan service
+  ansible.builtin.command: systemctl is-active mbpfan
+  register: mbpfan_check
+  changed_when: false
+  check_mode: false
+  tags: [mbpfan]
+
+- name: Display mbpfan config check
+  ansible.builtin.debug:
+    var: mbpfan_check.stdout_lines
+  tags: [mbpfan]

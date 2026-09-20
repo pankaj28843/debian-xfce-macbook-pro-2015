@@ -1,0 +1,43 @@
+---
+- name: Configure systemd-logind for clamshell and idle suspend
+  ansible.builtin.template:
+    src: logind.conf.j2
+    dest: /etc/systemd/logind.conf
+    mode: "0644"
+  tags: [logind, lid, suspend, clamshell]
+
+- name: Remove light-locker (conflicts with no-lock suspend)
+  ansible.builtin.apt:
+    name: light-locker
+    state: absent
+    purge: true
+  tags: [logind, power]
+
+- name: Configure existing XFCE power settings without replacing the user's file
+  community.general.xfconf:
+    channel: xfce4-power-manager
+    property: "/xfce4-power-manager/{{ item.name }}"
+    value_type: "{{ item.type }}"
+    value: "{{ item.value }}"
+  loop:
+    - { name: lock-screen-suspend-hibernate, type: bool, value: "{{ lock_screen_on_suspend | bool }}" }
+    - { name: inactivity-on-ac, type: int, value: "{{ idle_suspend_minutes }}" }
+    - { name: inactivity-on-battery, type: int, value: "{{ idle_suspend_minutes }}" }
+    - { name: inactivity-sleep-mode-on-ac, type: int, value: 1 }
+    - { name: inactivity-sleep-mode-on-battery, type: int, value: 1 }
+  become_user: "{{ primary_user }}"
+  environment:
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ primary_user_uid }}/bus"
+  tags: [logind, xfce, power]
+
+- name: Verify logind config
+  ansible.builtin.command: grep -E "HandleLidSwitchDocked|IdleActionSec" /etc/systemd/logind.conf
+  register: logind_check
+  changed_when: false
+  check_mode: false
+  tags: [logind]
+
+- name: Display logind config check
+  ansible.builtin.debug:
+    var: logind_check.stdout_lines
+  tags: [logind]

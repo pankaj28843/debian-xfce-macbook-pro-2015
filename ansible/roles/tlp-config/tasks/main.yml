@@ -1,0 +1,40 @@
+---
+- name: Install tlp
+  ansible.builtin.apt:
+    name: tlp
+    state: present
+    install_recommends: false
+  tags: [tlp]
+
+- name: Configure tlp
+  ansible.builtin.template:
+    src: tlp.conf.j2
+    dest: /etc/tlp.conf
+    mode: "0644"
+  notify: restart tlp
+  tags: [tlp]
+
+- name: Mask systemd-rfkill (tlp handles rfkill)
+  ansible.builtin.systemd:
+    name: systemd-rfkill@.service
+    masked: true
+  tags: [tlp]
+
+- name: Enable and start tlp service
+  ansible.builtin.systemd:
+    name: tlp
+    enabled: true
+    state: started
+  tags: [tlp]
+
+- name: Verify tlp status
+  ansible.builtin.command: tlp-stat -s
+  register: tlp_check
+  changed_when: false
+  check_mode: false
+  tags: [tlp]
+
+- name: Display tlp status
+  ansible.builtin.debug:
+    var: tlp_check.stdout_lines
+  tags: [tlp]

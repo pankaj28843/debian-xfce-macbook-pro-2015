@@ -1,0 +1,21 @@
+---
+- name: Configure LightDM auto-login for primary user
+  ansible.builtin.blockinfile:
+    path: /etc/lightdm/lightdm.conf
+    marker: "# {mark} ANSIBLE MANAGED - LightDM auto-login"
+    block: |
+      [Seat:*]
+      autologin-user={{ primary_user }}
+      autologin-user-timeout=0
+      user-session=xfce
+      display-setup-script=/etc/lightdm/display-setup.sh
+      xserver-command=X -dpi {{ retina_dpi }}
+  notify: restart lightdm
+  tags: [lightdm, autologin]
+
+- name: Ensure LightDM service is enabled
+  ansible.builtin.systemd:
+    name: lightdm
+    enabled: true
+    state: started
+  tags: [lightdm]

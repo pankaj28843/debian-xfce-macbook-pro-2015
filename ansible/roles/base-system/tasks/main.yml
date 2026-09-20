@@ -1,0 +1,46 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [packages]
+
+- name: Install essential packages
+  ansible.builtin.apt:
+    name: "{{ essential_packages }}"
+    state: present
+    install_recommends: false
+  tags: [packages]
+
+- name: Install optional packages
+  ansible.builtin.apt:
+    name: "{{ optional_packages }}"
+    state: present
+    install_recommends: false
+  tags: [packages]
+
+- name: Ensure primary user exists with correct groups
+  ansible.builtin.user:
+    name: "{{ primary_user }}"
+    uid: "{{ primary_user_uid }}"
+    groups: "{{ primary_user_groups.split(',') }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+  tags: [user]
+
+- name: Configure sudo NOPASSWD for primary user
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/{{ primary_user }}
+    content: "{{ primary_user }} ALL=(ALL) NOPASSWD: ALL\n"
+    mode: "0440"
+    validate: "visudo -cf %s"
+  when: primary_user_sudo_nopasswd | bool
+  tags: [user, sudo]
+
+- name: Add primary user to video group (for brightness control)
+  ansible.builtin.user:
+    name: "{{ primary_user }}"
+    groups: "video"
+    append: true
+  tags: [user, hotkeys]

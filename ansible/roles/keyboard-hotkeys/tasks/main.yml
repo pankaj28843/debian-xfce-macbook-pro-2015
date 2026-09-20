@@ -1,0 +1,67 @@
+---
+- name: Configure hid_apple fnmode=2
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/hid_apple.conf
+    content: |
+      # MacBook keyboard: F1-F12 as function keys by default (fnmode=2)
+      # fnmode=1: F1-F12 as media keys (default on Mac)
+      # fnmode=2: F1-F12 as function keys (need Fn for media)
+      options hid_apple fnmode={{ hid_apple_fnmode }} swap_opt_cmd={{ hid_apple_swap_opt_cmd }}
+    mode: "0644"
+  notify: update initramfs
+  tags: [keyboard, fnmode]
+
+- name: Install xbacklight for brightness control
+  ansible.builtin.apt:
+    name: "{{ xbacklight_package }}"
+    state: present
+    install_recommends: false
+  tags: [keyboard, brightness]
+
+- name: Add primary user to video group (for xbacklight)
+  ansible.builtin.user:
+    name: "{{ primary_user }}"
+    groups: "video"
+    append: true
+  tags: [keyboard, brightness]
+
+- name: Verify hid_apple config
+  ansible.builtin.command: cat /sys/module/hid_apple/parameters/fnmode
+  register: fnmode_check
+  changed_when: false
+  check_mode: false
+  tags: [keyboard, fnmode]
+
+- name: Display fnmode value
+  ansible.builtin.debug:
+    msg: "hid_apple fnmode = {{ fnmode_check.stdout }}"
+  tags: [keyboard, fnmode]
+
+- name: Install brightnessctl script for intel_backlight
+  ansible.builtin.copy:
+    dest: /usr/local/bin/brightnessctl
+    content: |
+      #!/bin/bash
+      # Brightness control for Intel i915 (MacBook Pro 2015)
+      BACKLIGHT_PATH="/sys/class/backlight/intel_backlight"
+      CURRENT=$(cat "$BACKLIGHT_PATH/brightness")
+      MAX=$(cat "$BACKLIGHT_PATH/max_brightness")
+      STEP=$((MAX / 20))
+      
+      case "$1" in
+        up)
+          NEW=$((CURRENT + STEP))
+          [ $NEW -gt $MAX ] && NEW=$MAX
+          ;;
+        down)
+          NEW=$((CURRENT - STEP))
+          [ $NEW -lt 0 ] && NEW=0
+          ;;
+        *)
+          echo "Usage: $0 {up|down}"
+          exit 1
+          ;;
+      esac
+      echo $NEW > "$BACKLIGHT_PATH/brightness"
+    mode: "0755"
+  tags: [keyboard, brightness]

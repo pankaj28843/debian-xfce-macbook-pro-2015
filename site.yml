@@ -1,0 +1,60 @@
+---
+- name: Configure MacBook Pro 2015 (MacBookPro12,1) - Debian 13 + XFCE
+  hosts: macbook
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Require an explicit target and desktop user
+      ansible.builtin.assert:
+        that:
+          - ansible_host | length > 0
+          - primary_user is match('^[a-z_][a-z0-9_-]*$')
+          - primary_user != 'root'
+          - ssh_port | int == ansible_port | int
+        fail_msg: "Set TARGET_HOST and PRIMARY_USER in .env and export them before running."
+      tags: [always]
+
+    - name: Gather target facts
+      ansible.builtin.setup:
+      tags: [always]
+
+    - name: Require Debian 13
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Debian'
+          - ansible_facts.distribution_major_version == '13'
+      tags: [always]
+
+  roles:
+    - role: base-system
+      tags: [base, packages]
+    - role: lightdm-autologin
+      tags: [lightdm, autologin, display]
+    - role: display-hidpi
+      tags: [display, hidpi, hdmi]
+    - role: ssh-hardening
+      tags: [ssh, security]
+    - role: ufw-firewall
+      tags: [ufw, firewall, security]
+    - role: mbpfan-config
+      tags: [mbpfan, thermal, fan]
+    - role: tlp-config
+      tags: [tlp, power]
+    - role: keyboard-hotkeys
+      tags: [keyboard, hotkeys, fnmode]
+    - role: sdcard-automount
+      tags: [sdcard, storage, automount]
+    - role: unattended-upgrades-config
+      tags: [unattended-upgrades, updates, security]
+    - role: logind-config
+      tags: [logind, lid, suspend, clamshell]
+    - role: vnc-server
+      tags: [vnc, remote-desktop]
+    - role: validation
+      tags: [validation, verify]
+
+  post_tasks:
+    - name: Configuration applied
+      ansible.builtin.debug:
+        msg: "Configured {{ inventory_hostname }}. Run with --tags validation for read-only checks."
+      tags: [always]

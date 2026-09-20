@@ -1,0 +1,44 @@
+---
+- name: Install x11vnc
+  ansible.builtin.apt:
+    name: x11vnc
+    state: present
+    install_recommends: false
+  tags: [vnc]
+
+- name: Ensure user service directory exists
+  ansible.builtin.file:
+    path: "/home/{{ primary_user }}/.config/systemd/user"
+    state: directory
+    owner: "{{ primary_user }}"
+    group: "{{ primary_user }}"
+    mode: "0755"
+  tags: [vnc]
+
+- name: Configure x11vnc user service
+  ansible.builtin.template:
+    src: x11vnc.service.j2
+    dest: "/home/{{ primary_user }}/.config/systemd/user/x11vnc.service"
+    mode: "0644"
+    owner: "{{ primary_user }}"
+    group: "{{ primary_user }}"
+  register: vnc_unit
+  tags: [vnc]
+
+- name: Enable lingering for primary user
+  ansible.builtin.command: "loginctl enable-linger {{ primary_user }}"
+  args:
+    creates: "/var/lib/systemd/linger/{{ primary_user }}"
+  tags: [vnc]
+
+- name: Enable and start x11vnc user service
+  ansible.builtin.systemd_service:
+    name: x11vnc
+    scope: user
+    daemon_reload: "{{ vnc_unit.changed }}"
+    enabled: true
+    state: "{{ 'restarted' if vnc_unit.changed else 'started' }}"
+  become_user: "{{ primary_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ primary_user_uid }}"
+  tags: [vnc]

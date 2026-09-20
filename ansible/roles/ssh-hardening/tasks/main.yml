@@ -1,0 +1,53 @@
+---
+- name: Generate SSH host keys if missing
+  ansible.builtin.command: ssh-keygen -A
+  args:
+    creates: /etc/ssh/ssh_host_ed25519_key
+  tags: [ssh]
+
+- name: Configure SSH daemon hardening
+  ansible.builtin.blockinfile:
+    path: /etc/ssh/sshd_config
+    validate: /usr/sbin/sshd -t -f %s
+    backup: true
+    owner: root
+    group: root
+    mode: "0644"
+    marker: "# {mark} ANSIBLE MANAGED - SSH hardening"
+    block: |
+      # SSH Hardening for MacBook Pro 2015
+      PermitRootLogin {{ ssh_permit_root_login }}
+      PubkeyAuthentication {{ 'yes' if ssh_pubkey_auth | bool else 'no' }}
+      PasswordAuthentication {{ 'yes' if ssh_password_auth | bool else 'no' }}
+      KbdInteractiveAuthentication {{ 'yes' if ssh_kbd_interactive | bool else 'no' }}
+      AllowUsers {{ ssh_allow_users }}
+      Port {{ ssh_port }}
+      # Disable unused authentication methods
+      ChallengeResponseAuthentication no
+      UsePAM yes
+      # Security settings
+      MaxAuthTries 3
+      LoginGraceTime 30
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+      # Preserve the existing Debian X11 forwarding behavior.
+      X11Forwarding {{ 'yes' if ssh_x11_forwarding | bool else 'no' }}
+      # Disable TCP forwarding
+      AllowTcpForwarding no
+      # Disable agent forwarding
+      AllowAgentForwarding no
+  notify: reload ssh
+  tags: [ssh, security]
+
+- name: Validate SSH config
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false
+  check_mode: false
+  tags: [ssh]
+
+- name: Ensure SSH service is enabled and started
+  ansible.builtin.systemd:
+    name: ssh
+    enabled: true
+    state: started
+  tags: [ssh]

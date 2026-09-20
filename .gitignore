@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.retry
+*.local.*
+.DS_Store
+tmp/

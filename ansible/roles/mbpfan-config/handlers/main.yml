@@ -1,0 +1,6 @@
+---
+- name: restart mbpfan
+  ansible.builtin.systemd:
+    name: mbpfan
+    state: restarted
+  listen: restart mbpfan

@@ -1,0 +1,13 @@
+[Unit]
+Description=x11vnc VNC Server for display {{ vnc_display }}
+After=graphical-session.target
+Requires=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/x11vnc -display {{ vnc_display }} -forever -shared -rfbport {{ vnc_port }} -noxdamage -noxfixes -noxrandr -quiet
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

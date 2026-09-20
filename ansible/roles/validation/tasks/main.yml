@@ -1,0 +1,195 @@
+---
+- name: Check auto-login config
+  ansible.builtin.shell: "grep -q '^autologin-user={{ primary_user }}' /etc/lightdm/lightdm.conf"
+  register: check_autologin
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check HiDPI script exists
+  ansible.builtin.shell: "grep -q 'xrandr --dpi {{ retina_dpi }}' /etc/lightdm/display-setup.sh"
+  register: check_hidpi
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check SD card fstab entry
+  ansible.builtin.shell: "grep -q 'LABEL={{ sdcard_label }}' /etc/fstab"
+  register: check_sdcard
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Read effective SSH policy
+  ansible.builtin.command: /usr/sbin/sshd -T
+  register: ssh_effective
+  changed_when: false
+  check_mode: false
+  tags: [validation]
+
+- name: Check sudo NOPASSWD
+  ansible.builtin.shell: "grep -q '{{ primary_user }} ALL=(ALL) NOPASSWD: ALL' /etc/sudoers.d/{{ primary_user }}"
+  register: check_sudo
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check mbpfan enabled
+  ansible.builtin.shell: "systemctl is-enabled mbpfan && systemctl is-active mbpfan"
+  register: check_mbpfan
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check tlp enabled
+  ansible.builtin.shell: "systemctl is-enabled tlp && systemctl is-active tlp"
+  register: check_tlp
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check actual security-update origin matching
+  ansible.builtin.shell: |
+    /usr/bin/python3 - <<'PYTHON'
+    import apt_pkg, runpy
+    upgrade = runpy.run_path('/usr/bin/unattended-upgrade')
+    origins = upgrade['get_allowed_origins']()
+    assert origins == {{ unattended_upgrades_origins | to_json }}, origins
+    cache = apt_pkg.Cache()
+    allowed = [p for p in cache.file_list
+               if any(upgrade['match_whitelist_string'](rule, p) for rule in origins)]
+    assert allowed, 'No configured APT repository matches the security policy'
+    assert all(p.origin == 'Debian' and p.codename == 'trixie-security'
+               and p.label == 'Debian-Security' for p in allowed)
+    print(origins)
+    PYTHON
+  register: check_uu
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check UFW active
+  ansible.builtin.shell: "ufw status | grep -q 'Status: active'"
+  register: check_ufw
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check UFW SSH rule
+  ansible.builtin.shell: "ufw status numbered | grep '22/tcp' | grep -q 'ALLOW IN.*Anywhere'"
+  register: check_ufw_ssh
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check UFW VNC rule
+  ansible.builtin.shell: "ufw status numbered | grep '5900/tcp' | grep -q 'ALLOW IN.*Anywhere'"
+  register: check_ufw_vnc
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check hid_apple fnmode=2
+  ansible.builtin.shell: "grep -q 'fnmode=2' /etc/modprobe.d/hid_apple.conf"
+  register: check_fnmode
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check xbacklight installed
+  ansible.builtin.shell: "dpkg -l xbacklight 2>/dev/null | grep -q ^ii"
+  register: check_xbacklight
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check x11vnc installed
+  ansible.builtin.shell: "dpkg -l x11vnc 2>/dev/null | grep -q ^ii"
+  register: check_x11vnc
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check x11vnc user service enabled
+  ansible.builtin.shell: "systemctl --user is-enabled x11vnc && systemctl --user is-active x11vnc"
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ primary_user_uid }}"
+  register: check_vnc_service
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Check linger enabled
+  ansible.builtin.shell: "loginctl show-user {{ primary_user }} | grep -q Linger=yes"
+  register: check_linger
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  tags: [validation]
+
+- name: Display validation results
+  ansible.builtin.debug:
+    msg:
+      - "Auto-login: {{ 'PASS' if check_autologin.rc == 0 else 'FAIL' }}"
+      - "HiDPI script: {{ 'PASS' if check_hidpi.rc == 0 else 'FAIL' }}"
+      - "SD card fstab: {{ 'PASS' if check_sdcard.rc == 0 else 'FAIL' }}"
+      - "sudo NOPASSWD: {{ 'PASS' if check_sudo.rc == 0 else 'FAIL' }}"
+      - "mbpfan enabled: {{ 'PASS' if check_mbpfan.rc == 0 else 'FAIL' }}"
+      - "tlp enabled: {{ 'PASS' if check_tlp.rc == 0 else 'FAIL' }}"
+      - "unattended-upgrades security-only: {{ 'PASS' if check_uu.rc == 0 else 'FAIL' }}"
+      - "UFW active: {{ 'PASS' if check_ufw.rc == 0 else 'FAIL' }}"
+      - "UFW SSH rule: {{ 'PASS' if check_ufw_ssh.rc == 0 else 'FAIL' }}"
+      - "UFW VNC rule: {{ 'PASS' if check_ufw_vnc.rc == 0 else 'FAIL' }}"
+      - "hid_apple fnmode=2: {{ 'PASS' if check_fnmode.rc == 0 else 'FAIL' }}"
+      - "xbacklight installed: {{ 'PASS' if check_xbacklight.rc == 0 else 'FAIL' }}"
+      - "x11vnc installed: {{ 'PASS' if check_x11vnc.rc == 0 else 'FAIL' }}"
+      - "x11vnc user service: {{ 'PASS' if check_vnc_service.rc == 0 else 'FAIL' }}"
+      - "linger enabled: {{ 'PASS' if check_linger.rc == 0 else 'FAIL' }}"
+  tags: [validation]
+
+- name: Fail if any validation failed
+  ansible.builtin.assert:
+    that:
+      - check_autologin.rc == 0
+      - check_hidpi.rc == 0
+      - check_sdcard.rc == 0
+      - "'permitrootlogin without-password' in ssh_effective.stdout_lines or 'permitrootlogin prohibit-password' in ssh_effective.stdout_lines"
+      - "'passwordauthentication no' in ssh_effective.stdout_lines"
+      - "'pubkeyauthentication yes' in ssh_effective.stdout_lines"
+      - "'kbdinteractiveauthentication no' in ssh_effective.stdout_lines"
+      - "'allowusers root' in ssh_effective.stdout_lines"
+      - "('allowusers ' ~ primary_user) in ssh_effective.stdout_lines"
+      - "('x11forwarding ' ~ ('yes' if ssh_x11_forwarding else 'no')) in ssh_effective.stdout_lines"
+      - "'allowtcpforwarding no' in ssh_effective.stdout_lines"
+      - "'allowagentforwarding no' in ssh_effective.stdout_lines"
+      - check_sudo.rc == 0
+      - check_mbpfan.rc == 0
+      - check_tlp.rc == 0
+      - check_uu.rc == 0
+      - check_ufw.rc == 0
+      - check_ufw_ssh.rc == 0
+      - check_ufw_vnc.rc == 0
+      - check_fnmode.rc == 0
+      - check_xbacklight.rc == 0
+      - check_x11vnc.rc == 0
+      - check_vnc_service.rc == 0
+      - check_linger.rc == 0
+    fail_msg: "One or more validation checks failed"
+    success_msg: "All validation checks passed!"
+  tags: [validation]
